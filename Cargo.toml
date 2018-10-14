@@ -1,0 +1,6 @@
+[package]
+name = "stori"
+version = "0.1.0"
+authors = ["Matias Heikkilä <matias.heikkila@futurice.com>"]
+
+[dependencies]
