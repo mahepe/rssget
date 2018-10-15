@@ -1,6 +1,8 @@
 [package]
-name = "stori"
+name = "rssget"
 version = "0.1.0"
 authors = ["Matias Heikkilä <matias.heikkila@futurice.com>"]
 
 [dependencies]
+rss = {version = "1.0", features = ["from_url"]}
+clap = "~2.32"
