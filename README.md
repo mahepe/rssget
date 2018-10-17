@@ -13,9 +13,16 @@ git clone https://github.com/mahepe/rssget.git
 cd rssget
 cargo build
 ```
-3. Try it out
+3. Fetch some news
 
 ```bash
 cargo run -- fetch https://news.ycombinator.com/rss
+```
+
+4. Read different XML-elements from the RSS items:
+
+```bash
+cargo run -- read title
+cargo run -- read title link # Fetch hash-identified news
 ```
 
