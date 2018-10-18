@@ -8,7 +8,7 @@ mod utils;
 fn main() {
     let matches = App::new("rssget")
         .version("0.1.0")
-        .about("A minimal RSS client.")
+        .about("A minimal RSS reader.")
         .subcommand(
             SubCommand::with_name("fetch")
                 .about("fetch an RSS stream from the given feed")
@@ -32,12 +32,18 @@ fn main() {
 
     if let Some(matches) = matches.subcommand_matches("fetch") {
         if let Some(feed) = matches.value_of("feed") {
-            fetch::fetch(feed, "asd.dat".to_string());
+            match fetch::fetch(feed, "asd.dat".to_string(), "aux.dat".to_string()) {
+                Ok(()) => (),
+                Err(e) => println!("{:?}", e),
+            }
         }
     }
 
     if let Some(matches) = matches.subcommand_matches("read") {
         let attrs: Vec<_> = matches.values_of("attrs").unwrap().collect();
-        read::read("asd.dat".to_string(), attrs);
+        match read::read("asd.dat".to_string(), "aux.dat".to_string(), attrs) {
+            Ok(()) => (),
+            Err(e) => println!("{:?}", e),
+        }
     }
 }
