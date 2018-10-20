@@ -27,6 +27,13 @@ fn main() {
                         .help("a list of attributes to read")
                         .required(true)
                         .min_values(1),
+                ).arg(
+                    Arg::with_name("feed")
+                        .help("read from a specific feed")
+                        .required(false)
+                        .short("f")
+                        .long("feed")
+                        .default_value(""),
                 ),
         ).get_matches();
 
@@ -41,7 +48,12 @@ fn main() {
 
     if let Some(matches) = matches.subcommand_matches("read") {
         let attrs: Vec<_> = matches.values_of("attrs").unwrap().collect();
-        match read::read("asd.dat".to_string(), "aux.dat".to_string(), attrs) {
+        match read::read(
+            "asd.dat".to_string(),
+            "aux.dat".to_string(),
+            attrs,
+            &matches.value_of("feed").unwrap().to_string(),
+        ) {
             Ok(()) => (),
             Err(e) => println!("{:?}", e),
         }

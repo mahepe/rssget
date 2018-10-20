@@ -6,7 +6,12 @@ use std::fs::OpenOptions;
 use std::io::BufReader;
 use std::str;
 
-pub fn read(fname: String, aux_fname: String, attrs: Vec<&str>) -> Result<(), Box<error::Error>> {
+pub fn read(
+    fname: String,
+    aux_fname: String,
+    attrs: Vec<&str>,
+    url: &String,
+) -> Result<(), Box<error::Error>> {
     let xml_tag_regex =
         |tag: String| -> Regex { Regex::new(&format!(r"<{}>(.+?)</{}>", tag, tag)).unwrap() };
     let regexes: Vec<Regex> = attrs
@@ -20,8 +25,12 @@ pub fn read(fname: String, aux_fname: String, attrs: Vec<&str>) -> Result<(), Bo
     let f = OpenOptions::new().read(true).open(fname)?;
     let mut reader = BufReader::new(f);
     let n_items = utils::count_items(&aux_fname)?;
+
     for offset in 0..n_items {
         let header = utils::read_aux_cell((n_items - offset - 1) as usize, &mut aux_reader)?;
+        if url.len() > 0 && !utils::hashes_equal(utils::hash(url), header.feed_hash) {
+            continue;
+        }
         utils::read_item(header, &mut reader, &regexes, &cdata_re)?;
     }
     Ok(())

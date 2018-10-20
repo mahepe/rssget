@@ -1,30 +1,24 @@
-extern crate crypto;
-extern crate regex;
-extern crate hex;
-extern crate colored;
 extern crate byteorder;
+extern crate crypto;
+extern crate hex;
+extern crate regex;
 
+use self::byteorder::ByteOrder;
+use self::byteorder::{LittleEndian, WriteBytesExt};
 use self::crypto::digest::Digest;
 use self::crypto::sha1::Sha1;
+use self::regex::Regex;
+use std::error;
 use std::fs;
 use std::fs::OpenOptions;
 use std::io;
 use std::io::prelude::*;
 use std::io::BufReader;
-
-use self::regex::Regex;
-use std::error;
 use std::mem;
 use std::str;
 
-use self::colored::*;
-
-
-use self::byteorder::ByteOrder;
-use self::byteorder::{LittleEndian, WriteBytesExt};
-
 const HASH_BYTES: usize = 20;
-const HEADER_BYTES: usize = 2*HASH_BYTES + 2 * mem::size_of::<u64>();
+const HEADER_BYTES: usize = 2 * HASH_BYTES + 2 * mem::size_of::<u64>();
 
 pub struct ItemHeader {
     pub item_length: usize,
@@ -33,19 +27,30 @@ pub struct ItemHeader {
     pub feed_hash: [u8; HASH_BYTES],
 }
 
-fn create_header(item: &String, fname: &String) -> Result<ItemHeader, Box<error::Error>> {
+pub fn hash(input: &String) -> [u8; HASH_BYTES] {
     let mut hasher = Sha1::new();
-    hasher.input_str(item);
+    hasher.input_str(input);
     let mut bytes = vec![0u8; HASH_BYTES];
     hasher.result(bytes.as_mut_slice());
     let hash = &mut [0u8; HASH_BYTES];
     hash.copy_from_slice(&bytes);
+    *hash
+}
 
+pub fn hashes_equal(h1: [u8; HASH_BYTES], h2: [u8; HASH_BYTES]) -> bool {
+    h1.iter().zip(h2.iter()).all(|(a, b)| a == b)
+}
+
+fn create_header(
+    item: &String,
+    fname: &String,
+    url: &String,
+) -> Result<ItemHeader, Box<error::Error>> {
     Ok(ItemHeader {
         item_length: item.len(),
         item_pos: fs::metadata(fname)?.len(),
-        hash: *hash,
-        feed_hash: *hash,
+        hash: hash(item),
+        feed_hash: hash(url),
     })
 }
 
@@ -74,16 +79,20 @@ fn header_to_bytes(header: ItemHeader) -> [u8; HEADER_BYTES] {
 }
 
 fn bytes_to_header(header_bytes: &[u8; HEADER_BYTES]) -> Result<ItemHeader, Box<error::Error>> {
-    let b_len: [u8; mem::size_of::<u64>()] =
-        clone_into_array(&header_bytes[0..(mem::size_of::<u64>())]);
+    let mut at: usize = 0;
+    let mut delta = mem::size_of::<u64>();
+    let b_len: [u8; mem::size_of::<u64>()] = clone_into_array(&header_bytes[0..(at + delta)]);
+
+    at += delta;
     let b_pos: [u8; mem::size_of::<u64>()] =
-        clone_into_array(&header_bytes[mem::size_of::<u64>()..(2 * mem::size_of::<u64>())]);
-    let b_hash: [u8; HASH_BYTES] = clone_into_array(
-        &header_bytes[(2 * mem::size_of::<u64>())..(HASH_BYTES + 2 * mem::size_of::<u64>())],
-    );
-    let b_feed_hash: [u8; HASH_BYTES] = clone_into_array(
-        &header_bytes[(2 * mem::size_of::<u64>()+HASH_BYTES)..(2*HASH_BYTES + 2 * mem::size_of::<u64>())],
-    );
+        clone_into_array(&header_bytes[mem::size_of::<u64>()..(at + delta)]);
+
+    at += delta;
+    delta = HASH_BYTES;
+    let b_hash: [u8; HASH_BYTES] = clone_into_array(&header_bytes[at..(at + delta)]);
+
+    at += delta;
+    let b_feed_hash: [u8; HASH_BYTES] = clone_into_array(&header_bytes[at..(at + delta)]);
     Ok(ItemHeader {
         item_length: LittleEndian::read_u64(&b_len) as usize,
         item_pos: LittleEndian::read_u64(&b_pos),
@@ -121,6 +130,7 @@ pub fn write_item(
     item: String,
     fname: &String,
     aux_fname: &String,
+    url: &String,
 ) -> Result<(), Box<error::Error>> {
     let mut f = OpenOptions::new().create(true).append(true).open(fname)?;
     let mut aux_f = OpenOptions::new()
@@ -128,7 +138,7 @@ pub fn write_item(
         .append(true)
         .open(aux_fname)?;
 
-    aux_f.write_all(&header_to_bytes(create_header(&item, fname)?))?;
+    aux_f.write_all(&header_to_bytes(create_header(&item, fname, url)?))?;
     aux_f.sync_data()?;
 
     f.write_all(item.as_bytes())?;
@@ -148,7 +158,12 @@ pub fn read_item(
         buf.set_len(header.item_length);
     }
     reader.read_exact(&mut buf)?;
-    print_attrs(&str::from_utf8(&buf)?.to_string(), regexes, cdata_re, header.hash)?;
+    print_attrs(
+        &str::from_utf8(&buf)?.to_string(),
+        regexes,
+        cdata_re,
+        header.hash,
+    )?;
     Ok(())
 }
 
@@ -163,7 +178,7 @@ fn print_attrs(
         if let Some(cap) = re.captures(item_txt) {
             let tmp = cdata_re.replace_all(&cap[1], r"$1").to_string();
             if first {
-                println!("{} {}", &hex::encode(hash)[..7].red(), tmp.bold());
+                println!("{} {}", &hex::encode(hash)[..7], tmp);
             } else {
                 println!("\t{}", tmp);
             }

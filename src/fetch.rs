@@ -23,7 +23,7 @@ pub fn fetch(url: &str, fname: String, aux_fname: String) -> Result<(), Box<erro
     body = preprocess_body(body);
 
     for item in xml_tag_regex("item".to_string()).captures_iter(&body) {
-        utils::write_item(item[1].to_string(), &fname, &aux_fname)?;
+        utils::write_item(item[1].to_string(), &fname, &aux_fname, &url.to_string())?;
     }
     Ok(())
 }
