@@ -1,5 +1,6 @@
 extern crate crypto;
 extern crate regex;
+extern crate hex;
 
 use self::crypto::digest::Digest;
 use self::crypto::sha1::Sha1;
@@ -137,7 +138,7 @@ pub fn read_item(
         buf.set_len(header.item_length);
     }
     reader.read_exact(&mut buf)?;
-    print_attrs(&str::from_utf8(&buf)?.to_string(), regexes, cdata_re)?;
+    print_attrs(&str::from_utf8(&buf)?.to_string(), regexes, cdata_re, header.hash)?;
     Ok(())
 }
 
@@ -145,11 +146,12 @@ fn print_attrs(
     item_txt: &String,
     regexes: &Vec<Regex>,
     cdata_re: &Regex,
+    hash: [u8; HASH_BYTES],
 ) -> Result<(), Box<error::Error>> {
     for re in regexes.iter() {
         if let Some(cap) = re.captures(item_txt) {
             let tmp = cdata_re.replace_all(&cap[1], r"$1").to_string();
-            println!("{}", tmp);
+            println!("({}) {}", &hex::encode(hash)[..7], tmp);
         }
     }
     Ok(())
