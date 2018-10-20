@@ -24,12 +24,13 @@ use self::byteorder::ByteOrder;
 use self::byteorder::{LittleEndian, WriteBytesExt};
 
 const HASH_BYTES: usize = 20;
-const HEADER_BYTES: usize = HASH_BYTES + 2 * mem::size_of::<u64>();
+const HEADER_BYTES: usize = 2*HASH_BYTES + 2 * mem::size_of::<u64>();
 
 pub struct ItemHeader {
     pub item_length: usize,
     pub item_pos: u64,
     pub hash: [u8; HASH_BYTES],
+    pub feed_hash: [u8; HASH_BYTES],
 }
 
 fn create_header(item: &String, fname: &String) -> Result<ItemHeader, Box<error::Error>> {
@@ -44,6 +45,7 @@ fn create_header(item: &String, fname: &String) -> Result<ItemHeader, Box<error:
         item_length: item.len(),
         item_pos: fs::metadata(fname)?.len(),
         hash: *hash,
+        feed_hash: *hash,
     })
 }
 
@@ -63,6 +65,7 @@ fn header_to_bytes(header: ItemHeader) -> [u8; HEADER_BYTES] {
     let res = &mut b_len.to_vec();
     res.append(&mut b_pos.to_vec());
     res.append(&mut header.hash.to_vec());
+    res.append(&mut header.feed_hash.to_vec());
 
     let mut array = [0; HEADER_BYTES];
     let res = &res[..array.len()];
@@ -78,10 +81,14 @@ fn bytes_to_header(header_bytes: &[u8; HEADER_BYTES]) -> Result<ItemHeader, Box<
     let b_hash: [u8; HASH_BYTES] = clone_into_array(
         &header_bytes[(2 * mem::size_of::<u64>())..(HASH_BYTES + 2 * mem::size_of::<u64>())],
     );
+    let b_feed_hash: [u8; HASH_BYTES] = clone_into_array(
+        &header_bytes[(2 * mem::size_of::<u64>()+HASH_BYTES)..(2*HASH_BYTES + 2 * mem::size_of::<u64>())],
+    );
     Ok(ItemHeader {
         item_length: LittleEndian::read_u64(&b_len) as usize,
         item_pos: LittleEndian::read_u64(&b_pos),
         hash: b_hash,
+        feed_hash: b_feed_hash,
     })
 }
 
