@@ -1,6 +1,8 @@
 extern crate crypto;
 extern crate regex;
 extern crate hex;
+extern crate colored;
+extern crate byteorder;
 
 use self::crypto::digest::Digest;
 use self::crypto::sha1::Sha1;
@@ -15,7 +17,8 @@ use std::error;
 use std::mem;
 use std::str;
 
-extern crate byteorder;
+use self::colored::*;
+
 
 use self::byteorder::ByteOrder;
 use self::byteorder::{LittleEndian, WriteBytesExt};
@@ -148,10 +151,16 @@ fn print_attrs(
     cdata_re: &Regex,
     hash: [u8; HASH_BYTES],
 ) -> Result<(), Box<error::Error>> {
+    let mut first = true;
     for re in regexes.iter() {
         if let Some(cap) = re.captures(item_txt) {
             let tmp = cdata_re.replace_all(&cap[1], r"$1").to_string();
-            println!("({}) {}", &hex::encode(hash)[..7], tmp);
+            if first {
+                println!("{} {}", &hex::encode(hash)[..7].red(), tmp.bold());
+            } else {
+                println!("\t{}", tmp);
+            }
+            first = false;
         }
     }
     Ok(())
