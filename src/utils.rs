@@ -158,12 +158,7 @@ pub fn read_item(
         buf.set_len(header.item_length);
     }
     reader.read_exact(&mut buf)?;
-    print_attrs(
-        &str::from_utf8(&buf)?.to_string(),
-        regexes,
-        cdata_re,
-        header.hash,
-    )?;
+    print_attrs(&str::from_utf8(&buf)?.to_string(), regexes, cdata_re)?;
     Ok(())
 }
 
@@ -171,19 +166,36 @@ fn print_attrs(
     item_txt: &String,
     regexes: &Vec<Regex>,
     cdata_re: &Regex,
-    hash: [u8; HASH_BYTES],
 ) -> Result<(), Box<error::Error>> {
-    let mut first = true;
     for re in regexes.iter() {
         if let Some(cap) = re.captures(item_txt) {
             let tmp = cdata_re.replace_all(&cap[1], r"$1").to_string();
-            if first {
-                println!("{} {}", &hex::encode(hash)[..7], tmp);
-            } else {
-                println!("\t{}", tmp);
-            }
-            first = false;
+            println!("{}", tmp);
         }
     }
+    println!("--------");
     Ok(())
+}
+
+pub fn is_url(url: &String) -> bool {
+    let re =
+        Regex::new(r"((https?|ftp|smtp)://)(www.)?[a-z0-9]+.[a-z]+(/[a-zA-Z0-9#]+/?)*").unwrap();
+    return re.is_match(url);
+}
+
+pub fn alias_to_url(
+    feed_alias: &String,
+    alias_fname: &String,
+) -> Result<String, Box<error::Error>> {
+    if let Ok(f) = OpenOptions::new().read(true).open(&alias_fname) {
+        let mut data = String::new();
+        let mut br = BufReader::new(f);
+        br.read_to_string(&mut data).expect("Unable to read string");
+
+        let re = Regex::new(&format!(r"{}=(.+?)\n", &feed_alias)).unwrap();
+        if let Some(cap) = re.captures(&data) {
+            return Ok(cap[1].to_string());
+        }
+    }
+    return Err(format!("alias {} not found", feed_alias).into());
 }
